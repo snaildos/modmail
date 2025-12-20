@@ -67,6 +67,7 @@ class Thread:
         self.wait_tasks = []
         self.close_task = None
         self.auto_close_task = None
+        self.auto_close_cancelled = False  # Track if auto-close was explicitly cancelled
         self._cancelled = False
         self._dm_menu_msg_id = None
         self._dm_menu_channel_id = None
@@ -1078,6 +1079,7 @@ class Thread:
                 self.auto_close_task = task
             else:
                 self.close_task = task
+                self.auto_close_cancelled = False  # Reset flag when manually closing
         else:
             await self._close(closer, silent, delete_channel, message)
 
@@ -1278,6 +1280,7 @@ class Thread:
         if self.auto_close_task is not None and (auto_close or all):
             self.auto_close_task.cancel()
             self.auto_close_task = None
+            self.auto_close_cancelled = True  # Mark auto-close as explicitly cancelled
 
         to_update = self.bot.config["closures"].pop(str(self.id), None)
         if to_update is not None:
@@ -1810,7 +1813,11 @@ class Thread:
             return await destination.send(embed=embed)
 
         if not note and from_mod:
-            self.bot.loop.create_task(self._restart_close_timer())  # Start or restart thread auto close
+            # Only restart auto-close if it wasn't explicitly cancelled
+            if not self.auto_close_cancelled:
+                self.bot.loop.create_task(self._restart_close_timer())  # Start or restart thread auto close
+        elif not note and not from_mod:
+            await self.cancel_closure(all=True)
 
         if self.close_task is not None:
             # cancel closing if a thread message is sent.

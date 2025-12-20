@@ -873,14 +873,33 @@ class Utility(commands.Cog):
                 color=self.bot.main_color,
                 description=f"`{key}` had been reset to default.",
             )
+
+            # Cancel exsisting active closures from thread_auto_close due to being disabled.
+            if key == "thread_auto_close":
+                closures = self.bot.config["closures"]
+                for recipient_id, items in tuple(closures.items()):
+                    if items.get("auto_close", False) is True:
+                        self.bot.config["closures"].pop(recipient_id)
+                        thread = await self.bot.threads.find(recipient_id=int(recipient_id))
+                        if thread:
+                            await thread.cancel_closure(all=True)
+                        else:
+                            self.bot.config["closures"].pop(recipient_id)
+                # Only update config once after processing all closures
+                await self.bot.config.update()
         else:
-            embed = discord.Embed(
-                title="Error",
-                color=self.bot.error_color,
-                description=f"{key} is an invalid key.",
-            )
-            valid_keys = [f"`{k}`" for k in sorted(keys)]
-            embed.add_field(name="Valid keys", value=", ".join(valid_keys))
+            embeds = []
+            for names in zip_longest(*(iter(sorted(keys)),) * 15):
+                description = "\n".join(f"`{name}`" for name in takewhile(lambda x: x is not None, names))
+                embed = discord.Embed(
+                    title="Error - Invalid Key",
+                    color=self.bot.error_color,
+                    description=f"`{key}` is an invalid key.\n\n**Valid configuration keys:**\n{description}",
+                )
+                embeds.append(embed)
+
+            session = EmbedPaginatorSession(ctx, *embeds)
+            return await session.run()
 
         return await ctx.send(embed=embed)
 

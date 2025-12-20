@@ -1129,7 +1129,7 @@ class Utility(commands.Cog):
 
         return await ctx.send(embed=embed)
 
-    async def make_alias(self, name, value, action):
+    async def make_alias(self, name, value, action, ctx):
         values = utils.parse_alias(value)
         if not values:
             embed = discord.Embed(
@@ -1176,16 +1176,23 @@ class Utility(commands.Cog):
                     if multiple_alias:
                         embed.description = (
                             "The command you are attempting to point "
-                            f"to does not exist: `{linked_command}`."
+                            f"to on step {i} does not exist: `{linked_command}`."
                         )
                     else:
                         embed.description = (
                             "The command you are attempting to point "
-                            f"to on step {i} does not exist: `{linked_command}`."
+                            f"to does not exist: `{linked_command}`."
                         )
 
                     return embed
             else:
+                if linked_command == "eval" and not await checks.check_permissions(ctx, "eval"):
+                    embed = discord.Embed(
+                        title="Error",
+                        description="You can only add the `eval` command to an alias if you have permissions for that command.",
+                        color=self.bot.error_color,
+                    )
+                    return embed
                 save_aliases.append(val)
             if multiple_alias:
                 embed.add_field(name=f"Step {i}:", value=utils.truncate(val, 1024))
@@ -1240,7 +1247,7 @@ class Utility(commands.Cog):
             )
 
         if embed is None:
-            embed = await self.make_alias(name, value, "Added")
+            embed = await self.make_alias(name, value, "Added", ctx)
         return await ctx.send(embed=embed)
 
     @alias.command(name="remove", aliases=["del", "delete"])
@@ -1272,7 +1279,7 @@ class Utility(commands.Cog):
             embed = utils.create_not_found_embed(name, self.bot.aliases.keys(), "Alias")
             return await ctx.send(embed=embed)
 
-        embed = await self.make_alias(name, value, "Edited")
+        embed = await self.make_alias(name, value, "Edited", ctx)
         return await ctx.send(embed=embed)
 
     @alias.command(name="rename")

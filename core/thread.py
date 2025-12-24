@@ -1060,7 +1060,10 @@ class Thread:
         """Close a thread now or after a set time in seconds"""
 
         # restarts the after timer
-        await self.cancel_closure(auto_close)
+        await self.cancel_closure(
+            auto_close,
+            mark_auto_close_cancelled=not auto_close,
+        )
 
         if after > 0:
             # TODO: Add somewhere to clean up broken closures
@@ -1104,7 +1107,7 @@ class Thread:
             logger.error("Thread already closed: %s.", e)
             return
 
-        await self.cancel_closure(all=True)
+        await self.cancel_closure(all=True, mark_auto_close_cancelled=False)
 
         # Cancel auto closing the thread if closed by any means.
 
@@ -1278,18 +1281,32 @@ class Thread:
             except Exception as inner_e:
                 logger.debug("Failed removing view from DM menu message: %s", inner_e)
 
-    async def cancel_closure(self, auto_close: bool = False, all: bool = False) -> None:
+    async def cancel_closure(
+        self,
+        auto_close: bool = False,
+        all: bool = False,
+        *,
+        mark_auto_close_cancelled: bool = True,
+    ) -> None:
         if self.close_task is not None and (not auto_close or all):
             self.close_task.cancel()
             self.close_task = None
         if self.auto_close_task is not None and (auto_close or all):
             self.auto_close_task.cancel()
             self.auto_close_task = None
-            self.auto_close_cancelled = True  # Mark auto-close as explicitly cancelled
+            if mark_auto_close_cancelled:
+                self.auto_close_cancelled = True  # Mark auto-close as explicitly cancelled
 
-        to_update = self.bot.config["closures"].pop(str(self.id), None)
-        if to_update is not None:
-            await self.bot.config.update()
+        closure_key = str(self.id)
+        existing = self.bot.config["closures"].get(closure_key)
+        if existing is not None:
+            existing_is_auto = bool(existing.get("auto_close", False))
+            should_remove = (
+                all or (auto_close and existing_is_auto) or ((not auto_close) and (not existing_is_auto))
+            )
+            if should_remove:
+                self.bot.config["closures"].pop(closure_key, None)
+                await self.bot.config.update()
 
     async def _restart_close_timer(self):
         """
@@ -1838,11 +1855,14 @@ class Thread:
             return await destination.send(embed=embed)
 
         if not note and from_mod:
-            # Only restart auto-close if it wasn't explicitly cancelled
+            # Only restart auto-close if it wasn't explicitly cancelled.
+            # Auto-close is driven by the last moderator reply.
             if not self.auto_close_cancelled:
                 self.bot.loop.create_task(self._restart_close_timer())  # Start or restart thread auto close
         elif not note and not from_mod:
-            await self.cancel_closure(all=True)
+            # If the user replied last, the thread should not auto-close.
+            # Cancel any pending auto-close without marking it as an explicit cancellation.
+            await self.cancel_closure(auto_close=True, mark_auto_close_cancelled=False)
 
         if self.close_task is not None:
             # cancel closing if a thread message is sent.

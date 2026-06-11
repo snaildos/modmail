@@ -261,9 +261,7 @@ class Thread:
                 {"channel_id": str(self.channel.id)},
                 {"$set": {"snoozed": True, "snooze_data": self.snooze_data}},
             )
-        import logging
-
-        logging.info(f"[SNOOZE] DB update result: {result.modified_count}")
+        logger.info("[SNOOZE] DB update result: %s", result.modified_count)
 
         # Dispatch thread_snoozed event for plugins
         self.bot.dispatch("thread_snoozed", self, moderator, snooze_for)
@@ -729,9 +727,7 @@ class Thread:
                         "$unset": {"snoozed": "", "snooze_data": ""},
                     },
                 )
-        import logging
-
-        logging.info(f"[UNSNOOZE] DB update result: {result.modified_count}")
+        logger.info("[UNSNOOZE] DB update result: %s", result.modified_count)
         # Notify in the configured channel
         notify_channel = self.bot.config.get("unsnooze_notify_channel") or "thread"
         notify_text = self.bot.config.get("unsnooze_text") or "This thread has been unsnoozed and restored."

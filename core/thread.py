@@ -2664,14 +2664,27 @@ class ThreadManager:
                     self.bot.config["confirm_thread_creation_deny"],
                 )
             )
-            confirm = await destination.send(
-                embed=discord.Embed(
-                    title=self.bot.config["confirm_thread_creation_title"],
-                    description=self.bot.config["confirm_thread_response"],
-                    color=self.bot.main_color,
-                ),
-                view=view,
-            )
+            try:
+                confirm = await destination.send(
+                    embed=discord.Embed(
+                        title=self.bot.config["confirm_thread_creation_title"],
+                        description=self.bot.config["confirm_thread_response"],
+                        color=self.bot.main_color,
+                    ),
+                    view=view,
+                )
+            except discord.Forbidden:
+                # Recipient has DMs disabled (or otherwise unreachable). Without this,
+                # the thread would stay stuck in cache in a "not ready" state until a
+                # bot restart, since view.wait() below would never run.
+                logger.warning(
+                    "Could not send confirm-thread-creation message to %s, DMs are likely disabled.",
+                    recipient,
+                )
+                thread.cancelled = True
+                del self.cache[recipient.id]
+                return thread
+
             await view.wait()
             if view.value is None:
                 thread.cancelled = True

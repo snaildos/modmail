@@ -152,13 +152,6 @@ Discord Advice Center:
 <a href='https://discord.gg/zmwZy5fd9v'>
   <img height=100 src='https://i.imgur.com/1hrjcHd.png' style='margin:5px'>
 </a>
-<br>
-<br>
-Kistó Bakery:
-<br>
-<a href='https://www.roblox.com/communities/9318596/Kist#!/about'>
-  <img height=100 src='https://i.imgur.com/ck81JiJ.jpeg' style='margin:5px'>
-</a>
 
 Become a sponsor on [Buy Me A Coffee](https://buymeacoffee.com/modmaildev/membership).
 
